@@ -1,5 +1,5 @@
 {
-  "name": "next-app",
+  "name": "tt-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,12 +11,18 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
+    "@reduxjs/toolkit": "^2.11.2",
+    "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "firebase": "^12.10.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
+    "next-themes": "^0.4.6",
     "react": "19.2.3",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.3",
+    "react-redux": "^9.2.0",
     "shadcn": "^4.0.2",
     "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.4.0"
