@@ -10,7 +10,7 @@ import { RootState } from "@/lib/redux/store";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Ticket } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -135,9 +135,19 @@ export default function LoginPage() {
       {/* Right Column - Visual (Hidden on mobile) */}
       <div className="hidden lg:flex w-1/2 bg-linear-to-b from-[#3b7ae6] via-[#2d64c8] to-[#1e4695] flex-col items-center justify-center p-12 text-white relative overflow-hidden">
         
-        <div className="relative z-10 text-center max-w-xl mb-14">
-          <h2 className="text-[46px] font-bold mb-5 tracking-tight">TomTicket Dashboard</h2>
-          <p className="text-blue-100/90 text-[18.5px] leading-relaxed max-w-[500px] mx-auto">
+        <div className="relative z-10 text-center max-w-xl mb-14 flex flex-col items-center">
+          {/* Logo TT Dashboard conforme Imagem */}
+          <div className="flex items-center gap-5 mb-8">
+            <div className="w-20 h-20 rounded-full border-[4px] border-white flex items-center justify-center bg-white/10 backdrop-blur-sm shadow-md">
+              <Ticket className="w-10 h-10" />
+            </div>
+            <div className="flex flex-col items-start leading-[0.82]">
+              <span className="text-[72px] font-black tracking-tight drop-shadow-sm">TT</span>
+              <span className="text-[16px] font-bold tracking-[0.3em] text-blue-200 mt-2 ml-1 drop-shadow-sm">DASHBOARD</span>
+            </div>
+          </div>
+          
+          <p className="text-blue-100/90 text-[18.5px] leading-relaxed max-w-[460px] mx-auto mt-6">
             Uma visão centralizada para acompanhar todos os indicadores de suporte técnico e fila de chamados em tempo real.
           </p>
         </div>
