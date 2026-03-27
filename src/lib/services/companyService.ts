@@ -1,142 +1,129 @@
-import { rdb } from "@/lib/firebase";
-import { ref, get, update, push, query, orderByChild, equalTo, serverTimestamp } from "firebase/database";
+import { auth } from "@/lib/firebase";
 
 export interface UserContext {
   companyId: string;
   role: "owner" | "agent";
 }
 
+async function getAuthToken(): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Usuário não autenticado.");
+  }
+  return await user.getIdToken();
+}
+
 /**
  * Searches the RDB for a user's company context
  */
-export async function getUserContext(uid: string): Promise<UserContext | null> {
-  const userRef = ref(rdb, `users/${uid}`);
-  const snapshot = await get(userRef);
-  
-  if (snapshot.exists()) {
-    const data = snapshot.val();
-    if (data.companyId && data.role) {
-      return {
-        companyId: data.companyId,
-        role: data.role,
-      };
-    }
+export async function getUserContext(_uid: string): Promise<UserContext | null> {
+  try {
+    const token = await getAuthToken();
+    const response = await fetch("/api/user/context", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data || null;
+  } catch (error) {
+    console.error("Failed to fetch user context", error);
+    return null;
   }
-  return null;
-}
-
-/**
- * Generates a random invite code
- */
-function generateInviteCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-/**
- * Finds a company ID by its invite code
- */
-export async function getCompanyByInviteCode(inviteCode: string): Promise<string | null> {
-  const companiesRef = ref(rdb, "companies");
-  const q = query(companiesRef, orderByChild("inviteCode"), equalTo(inviteCode));
-  const snapshot = await get(q);
-
-  if (snapshot.exists()) {
-    // snapshot.val() will be an object with the companyId as key
-    const companies = snapshot.val();
-    const companyId = Object.keys(companies)[0];
-    return companyId || null;
-  }
-  return null;
 }
 
 /**
  * Creates a new company and links the user as owner
  */
-export async function createCompany(uid: string, name: string): Promise<string> {
-  const companiesRef = ref(rdb, "companies");
-  const newCompanyRef = push(companiesRef);
-  const companyId = newCompanyRef.key;
+export async function createCompany(_uid: string, name: string): Promise<string> {
+  const token = await getAuthToken();
+  const response = await fetch("/api/company/create", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ name })
+  });
 
-  if (!companyId) {
-    throw new Error("Failed to generate company ID");
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Erro ao criar empresa");
   }
 
-  const inviteCode = generateInviteCode();
-  
-  // Prepare multi-path update object
-  const updates: Record<string, string | object | number | boolean | null> = {};
-
-  // 1. Create company record
-  updates[`companies/${companyId}`] = {
-    name,
-    ownerId: uid,
-    inviteCode,
-    createdAt: serverTimestamp(),
-  };
-
-  // 2. Link user as owner in members list
-  updates[`members/${companyId}/${uid}`] = "owner";
-
-  // 3. Update user profile to point to company
-  updates[`users/${uid}/companyId`] = companyId;
-  updates[`users/${uid}/role`] = "owner";
-
-  // Execute atomic update
-  await update(ref(rdb), updates);
-
-  return companyId;
+  return data.companyId;
 }
 
 /**
  * Joins an existing company using an invite code
  */
-export async function joinCompany(uid: string, inviteCode: string): Promise<string> {
-  const companyId = await getCompanyByInviteCode(inviteCode);
+export async function joinCompany(_uid: string, inviteCode: string): Promise<string> {
+  const token = await getAuthToken();
+  const response = await fetch("/api/company/join", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ inviteCode })
+  });
 
-  if (!companyId) {
-    throw new Error("Código de convite inválido ou empresa não encontrada.");
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Erro ao entrar na empresa");
   }
 
-  // Prepara multi-path update object
-  const updates: Record<string, string | object | number | boolean | null> = {};
-
-  // 1. Add user to members list as agent
-  updates[`members/${companyId}/${uid}`] = "agent";
-
-  // 2. Update user profile to point to company
-  updates[`users/${uid}/companyId`] = companyId;
-  updates[`users/${uid}/role`] = "agent";
-
-  // Execute atomic update
-  await update(ref(rdb), updates);
-
-  return companyId;
+  return data.companyId;
 }
 
 /**
- * Salva o token de integração do TomTicket no Realtime Database
+ * Salva o token de integração do TomTicket no Realtime Database via API Route
  */
 export async function saveIntegrationToken(companyId: string, token: string): Promise<void> {
   if (!token.trim()) {
     throw new Error("O token não pode estar vazio.");
   }
   
-  const updates: Record<string, string | boolean> = {};
-  updates[`integrations/${companyId}/tomticket/token`] = token.trim();
-  updates[`integrations/${companyId}/tomticket/active`] = true;
-  
-  await update(ref(rdb), updates);
+  const authToken = await getAuthToken();
+  const response = await fetch("/api/integrations/save", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authToken}`
+    },
+    body: JSON.stringify({ companyId, token: token.trim() })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Erro ao salvar token");
+  }
 }
 
 /**
- * Busca o token de integração do TomTicket
+ * Busca o status de integração do TomTicket
+ * Nota: Retorna apenas se o token existe e está ativo p/ n expor a chave cliente.
+ * Se houver necessidade do hash token no frontend (não recomendado), reverte.
  */
 export async function getIntegrationToken(companyId: string): Promise<string | null> {
-  const tokenRef = ref(rdb, `integrations/${companyId}/tomticket/token`);
-  const snapshot = await get(tokenRef);
+  const authToken = await getAuthToken();
+  const response = await fetch(`/api/integrations/get?companyId=${companyId}`, {
+    headers: {
+      Authorization: `Bearer ${authToken}`
+    }
+  });
+
+  if (!response.ok) {
+    return null;
+  }
   
-  if (snapshot.exists()) {
-    return snapshot.val();
+  const data = await response.json();
+  // Para manter compatibilidade com o hook atual de Settings que espera um token
+  // Retorna uma string fixa se estiver ok
+  if (data.active && data.hasToken) {
+    return "********-****-****-****-************";
   }
   
   return null;
