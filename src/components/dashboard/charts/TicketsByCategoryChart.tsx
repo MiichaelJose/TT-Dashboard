@@ -10,29 +10,40 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Ticket } from "@/types/tomTicket";
+import { useMemo } from "react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export function TicketsByCategoryChart() {
-  const data = {
-    labels: [
-      "Colibri POS",
-      "Habibs Bordéro",
-      "Manager - PDV Gold",
-      "Colibri Fácil",
-      "Infraestrutura",
-      "Dúvidas Nuvem",
-    ],
-    datasets: [
-      {
-        label: "Total de Chamados",
-        data: [134, 98, 76, 52, 45, 29],
-        backgroundColor: "#3169d3", // Brand Blue
-        borderRadius: 4,
-        barPercentage: 0.5,
-      },
-    ],
-  };
+interface TicketsByCategoryChartProps {
+  tickets: Ticket[];
+}
+
+export function TicketsByCategoryChart({ tickets }: TicketsByCategoryChartProps) {
+  const data = useMemo(() => {
+    const group: Record<string, number> = {};
+    
+    tickets.forEach(t => {
+      const cat = t.category || "Sem Categoria";
+      group[cat] = (group[cat] || 0) + 1;
+    });
+
+    // Sort categories desc by count
+    const sortedCategories = Object.keys(group).sort((a, b) => group[b] - group[a]).slice(0, 10);
+
+    return {
+      labels: sortedCategories,
+      datasets: [
+        {
+          label: "Total de Chamados",
+          data: sortedCategories.map(cat => group[cat]),
+          backgroundColor: "#3169d3", // Brand Blue
+          borderRadius: 4,
+          barPercentage: 0.5,
+        },
+      ],
+    };
+  }, [tickets]);
 
   const options = {
     indexAxis: "y" as const,
@@ -69,7 +80,7 @@ export function TicketsByCategoryChart() {
         },
         ticks: {
           color: "#52525b",
-          font: { size: 12, weight: "bold" },
+          font: { size: 12, weight: "bold" as const },
         },
         border: { display: false },
       },

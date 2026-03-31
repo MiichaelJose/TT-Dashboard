@@ -2,23 +2,43 @@
 
 import { 
   TicketCheck, 
-  Ticket, 
+  Ticket as TicketIcon, 
   Clock, 
   AlertCircle, 
   Target 
 } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Ticket } from "@/types/tomTicket";
+import { useMemo } from "react";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-export function OverviewSection() {
+interface OverviewSectionProps {
+  tickets: Ticket[];
+}
+
+export function OverviewSection({ tickets }: OverviewSectionProps) {
+  // Computations
+  const stats = useMemo(() => {
+    const total = tickets.length;
+    const closed = tickets.filter(t => (t.status || '').toLowerCase().includes('fechado')).length;
+    const open = total - closed;
+    const closedRate = total > 0 ? ((closed / total) * 100).toFixed(1) : "0.0";
+    
+    return {
+      total,
+      closed,
+      open,
+      closedRate,
+    };
+  }, [tickets]);
+
   const gaugeData = {
     labels: ["SLA Atual", "Faltante para Meta"],
     datasets: [
       {
         data: [91.7, 8.3],
-        // Laranja/Vermelho indicando abaixo da meta, fundo cinza para o resto
         backgroundColor: ["#f97316", "#f4f4f5"],
         borderWidth: 0,
         circumference: 180,
@@ -35,7 +55,6 @@ export function OverviewSection() {
       legend: { display: false },
       tooltip: { enabled: false },
     },
-    // Desabilitando interatividade desnecessária
     events: [],
   };
 
@@ -54,12 +73,12 @@ export function OverviewSection() {
               Total de Chamados
             </h3>
             <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300">
-              <Ticket className="w-4.5 h-4.5" />
+              <TicketIcon className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="mt-auto">
             <p className="text-[32px] font-bold text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mb-1">
-              1.680
+              {stats.total.toLocaleString("pt-BR")}
             </p>
             <p className="text-[12.5px] text-zinc-400 dark:text-zinc-500 font-medium">
               Volume no período
@@ -80,10 +99,10 @@ export function OverviewSection() {
           </div>
           <div className="mt-auto relative z-10">
             <p className="text-[32px] font-bold text-emerald-600 dark:text-emerald-400 tracking-tight leading-none mb-2">
-              1.645
+              {stats.closed.toLocaleString("pt-BR")}
             </p>
             <div className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 text-[12px] font-medium text-emerald-700 dark:text-emerald-400">
-              97,9% taxa de fechamento
+              {stats.closedRate}% taxa de fechamento
             </div>
           </div>
         </div>
@@ -101,7 +120,7 @@ export function OverviewSection() {
           </div>
           <div className="mt-auto relative z-10">
             <p className="text-[32px] font-bold text-orange-500 dark:text-orange-400 tracking-tight leading-none mb-1">
-              35
+              {stats.open.toLocaleString("pt-BR")}
             </p>
             <p className="text-[12.5px] text-orange-600/70 dark:text-orange-400/70 font-medium">
               Aguardando atendimento
@@ -113,7 +132,7 @@ export function OverviewSection() {
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col transition-shadow hover:shadow-sm">
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-[14.5px] font-medium text-zinc-500 dark:text-zinc-400 leading-tight">
-              SLA e Tempo
+              SLA e Tempo (Mock)
             </h3>
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Clock className="w-4.5 h-4.5" />

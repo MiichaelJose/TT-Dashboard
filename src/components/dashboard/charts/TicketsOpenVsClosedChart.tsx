@@ -10,31 +10,62 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Ticket } from "@/types/tomTicket";
+import { useMemo } from "react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export function TicketsOpenVsClosedChart() {
-  const data = {
-    labels: ["Jan/26", "Fev/26", "Mar/26", "Abr/26", "Mai/26", "Jun/26"],
-    datasets: [
-      {
-        label: "Fechados",
-        data: [120, 150, 180, 190, 160, 210],
-        backgroundColor: "#10b981", // Emerald-500
-        borderRadius: 4,
-        barPercentage: 0.6,
-        categoryPercentage: 0.8,
-      },
-      {
-        label: "Abertos",
-        data: [45, 30, 60, 40, 55, 35],
-        backgroundColor: "#3169d3", // Brand Blue
-        borderRadius: 4,
-        barPercentage: 0.6,
-        categoryPercentage: 0.8,
-      },
-    ],
-  };
+interface TicketsOpenVsClosedChartProps {
+  tickets: Ticket[];
+}
+
+export function TicketsOpenVsClosedChart({ tickets }: TicketsOpenVsClosedChartProps) {
+  const data = useMemo(() => {
+    // Group by month-year
+    const group: Record<string, { open: number; closed: number }> = {};
+
+    tickets.forEach((t) => {
+      const date = new Date(t.created_at);
+      const monthStr = date.toLocaleString('pt-BR', { month: 'short' });
+      const yearStr = date.toLocaleString('pt-BR', { year: '2-digit' });
+      const label = `${monthStr.charAt(0).toUpperCase() + monthStr.slice(1)}/${yearStr}`;
+
+      if (!group[label]) group[label] = { open: 0, closed: 0 };
+
+      const isClosed = (t.status || '').toLowerCase().includes('fechado');
+      if (isClosed) group[label].closed += 1;
+      else group[label].open += 1;
+    });
+
+    // Sort labels chronologically (simplification: assume keys are somewhat ordered by creation or we just use extracted keys)
+    // A more robust apporach would sort them by Date.
+    const labels = Object.keys(group).sort((a,b) => {
+      // Very basic sort because the mock format is MM/YY
+      return a.localeCompare(b);
+    });
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Fechados",
+          data: labels.map((l) => group[l].closed),
+          backgroundColor: "#10b981", // Emerald-500
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8,
+        },
+        {
+          label: "Abertos",
+          data: labels.map((l) => group[l].open),
+          backgroundColor: "#3169d3", // Brand Blue
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8,
+        },
+      ],
+    };
+  }, [tickets]);
 
   const options = {
     responsive: true,

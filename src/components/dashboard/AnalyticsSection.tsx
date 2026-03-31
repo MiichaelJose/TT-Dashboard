@@ -6,8 +6,13 @@ import { OpenTicketsByCategoryChart } from "./charts/OpenTicketsByCategoryChart"
 import { TicketTypesPieChart } from "./charts/TicketTypesPieChart";
 import { TicketsByCategoryChart } from "./charts/TicketsByCategoryChart";
 import { TopRequestersChart } from "./charts/TopRequestersChart";
+import { Ticket } from "@/types/tomTicket";
 
-export function AnalyticsSection() {
+interface AnalyticsSectionProps {
+  tickets: Ticket[];
+}
+
+export function AnalyticsSection({ tickets }: AnalyticsSectionProps) {
   return (
     <section className="mb-10 w-full animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both mt-12">
       <div className="flex items-center justify-between mb-5">
@@ -21,27 +26,28 @@ export function AnalyticsSection() {
         </div>
       </div>
 
-      {/* Row 1: Abaertos vs Fechados & Em Aberto Por Categoria */}
+      {/* Row 1: Abertos vs Fechados & Em Aberto Por Categoria */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <TicketsOpenVsClosedChart />
-        <OpenTicketsByCategoryChart />
+        <TicketsOpenVsClosedChart tickets={tickets} />
+        <OpenTicketsByCategoryChart tickets={tickets} />
       </div>
 
       {/* Row 2: Tipo de Chamados & Chamados por Categoria */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="lg:col-span-1">
-          <TicketTypesPieChart />
+          <TicketTypesPieChart tickets={tickets} />
         </div>
         <div className="lg:col-span-2">
-          <TicketsByCategoryChart />
+          <TicketsByCategoryChart tickets={tickets} />
         </div>
       </div>
 
       {/* Row 3: Top 10 Solicitantes */}
       <div className="grid grid-cols-1 gap-4">
-        <TopRequestersChart />
+        <TopRequestersChart tickets={tickets} />
       </div>
 
     </section>
   );
 }
+

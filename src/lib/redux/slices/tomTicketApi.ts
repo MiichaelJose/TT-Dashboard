@@ -1,28 +1,49 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { auth } from '@/lib/firebase';
+import { Ticket, SyncResponse } from '@/types/tomTicket';
 
-// Example interfaces (to be expanded later in types/)
-export interface OverviewMetrics {
-  totalTickets: number;
-  openTickets: number;
-  resolvedTickets: number;
-  avgResolutionTime: number; // in hours or minutes
-}
+// Configurando BaseQuery com interceptador de token JWT
+const baseQuery = fetchBaseQuery({
+  baseUrl: '/api',
+  prepareHeaders: async (headers) => {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return headers;
+  },
+});
 
 export const tomTicketApi = createApi({
   reducerPath: 'tomTicketApi',
-  baseQuery: fetchBaseQuery({ 
-    baseUrl: '/api/proxy-tomticket',
-  }),
-  // RTK Query Caching behavior (600 seconds = 10 minutes cache to avoid TomTicket API rate limits 429)
-  keepUnusedDataFor: 600, 
+  baseQuery,
+  tagTypes: ['Tickets'],
   endpoints: (builder) => ({
-    getOverviewMetrics: builder.query<OverviewMetrics, void>({
-      query: () => '/overview',
-      // Keep cached data for 10 minutes
-      keepUnusedDataFor: 600,
+    // Rota GET /api/tickets
+    getTickets: builder.query<Ticket[], string>({
+      query: (companyId) => `/tickets?companyId=${companyId}`,
+      providesTags: ['Tickets'],
+      keepUnusedDataFor: 600, // 10 minutes cache
     }),
-    // Other endpoints can be added here
+    
+    // Rota POST /api/sync
+    triggerSync: builder.mutation<SyncResponse, string>({
+      query: (companyId) => ({
+        url: '/sync',
+        method: 'POST',
+        body: { companyId },
+      }),
+      // Quando finaliza o Sync com sucesso, invalida os tickets forçando re-fetch
+      invalidatesTags: (result) => {
+        if (result?.status === 'synced') {
+          return ['Tickets'];
+        }
+        return [];
+      },
+    }),
   }),
 });
 
-export const { useGetOverviewMetricsQuery } = tomTicketApi;
+export const { useGetTicketsQuery, useTriggerSyncMutation } = tomTicketApi;
+

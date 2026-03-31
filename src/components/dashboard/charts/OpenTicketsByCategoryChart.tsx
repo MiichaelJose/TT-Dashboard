@@ -10,29 +10,43 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Ticket } from "@/types/tomTicket";
+import { useMemo } from "react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export function OpenTicketsByCategoryChart() {
-  const data = {
-    labels: [
-      "Colibri POS",
-      "Habibs Bordéro",
-      "Manager - PDV Gold",
-      "Colibri Fácil",
-      "Infraestrutura",
-      "Dúvidas Nuvem",
-    ],
-    datasets: [
-      {
-        label: "Em Aberto",
-        data: [42, 28, 24, 18, 12, 8],
-        backgroundColor: "#f97316", // Orange-500
-        borderRadius: 4,
-        barPercentage: 0.5,
-      },
-    ],
-  };
+interface OpenTicketsByCategoryChartProps {
+  tickets: Ticket[];
+}
+
+export function OpenTicketsByCategoryChart({ tickets }: OpenTicketsByCategoryChartProps) {
+  const data = useMemo(() => {
+    const group: Record<string, number> = {};
+    
+    // Filtra apenas chamados em aberto
+    const openTickets = tickets.filter(t => !(t.status || '').toLowerCase().includes('fechado'));
+
+    openTickets.forEach(t => {
+      const cat = t.category || "Sem Categoria";
+      group[cat] = (group[cat] || 0) + 1;
+    });
+
+    // Sort categories desc by count
+    const sortedCategories = Object.keys(group).sort((a, b) => group[b] - group[a]).slice(0, 10);
+
+    return {
+      labels: sortedCategories,
+      datasets: [
+        {
+          label: "Em Aberto",
+          data: sortedCategories.map(cat => group[cat]),
+          backgroundColor: "#f97316", // Orange-500
+          borderRadius: 4,
+          barPercentage: 0.5,
+        },
+      ],
+    };
+  }, [tickets]);
 
   const options = {
     indexAxis: "y" as const,
@@ -69,7 +83,7 @@ export function OpenTicketsByCategoryChart() {
         },
         ticks: {
           color: "#52525b",
-          font: { size: 12, weight: "bold" },
+          font: { size: 12, weight: "bold" as const },
         },
         border: { display: false },
       },

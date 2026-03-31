@@ -1,19 +1,67 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/lib/redux/store";
 import { OverviewSection } from "@/components/dashboard/OverviewSection";
 import { AnalyticsSection } from "@/components/dashboard/AnalyticsSection";
+import { useTriggerSyncMutation, useGetTicketsQuery } from "@/lib/redux/slices/tomTicketApi";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
   const { user } = useSelector((state: RootState) => state.auth);
+  const companyId = user?.companyId as string;
 
-  // Deriva o nome do usuário a partir do displayName ou do email da sessão
+  const [triggerSync, { isLoading: isSyncing }] = useTriggerSyncMutation();
+  const { data: tickets, isLoading: isFetchingTickets } = useGetTicketsQuery(companyId, {
+    skip: !companyId,
+  });
+
+  const [syncMessage, setSyncMessage] = useState<{ text: string; type: 'info' | 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    // Trigger sync on mount
+    triggerSync(companyId)
+      .unwrap()
+      .then((res) => {
+        if (res.status === 'synced') {
+          setSyncMessage({ text: "Dados atualizados com sucesso!", type: 'success' });
+        } else if (res.status === 'cached') {
+          setSyncMessage({ text: "Dados recentes carregados.", type: 'info' });
+        }
+      })
+      .catch(() => {
+        setSyncMessage({ text: "Problema ao sincronizar chamados. Mostrando dados locais.", type: 'error' });
+      })
+      .finally(() => {
+        setTimeout(() => setSyncMessage(null), 5000);
+      });
+  }, [companyId, triggerSync]);
+
   const accountName = user?.displayName || user?.email?.split('@')[0] || "usuário";
 
+  const isLoading = isSyncing || isFetchingTickets;
+
   return (
-    <div className="max-w-[1400px] w-full mx-auto">
-      {/* Greeting section matching mockup exactly */}
+    <div className="max-w-[1400px] w-full mx-auto relative">
+      
+      {/* Toast flutuante rudimentar para exibir status da refatoração */}
+      {syncMessage && (
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium animate-in slide-in-from-top-4 fade-in duration-300
+          ${syncMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+            syncMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 
+            'bg-blue-50 text-blue-700 border border-blue-200'}`}
+        >
+          {syncMessage.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
+          {syncMessage.type === 'error' && <AlertCircle className="w-4 h-4" />}
+          {syncMessage.type === 'info' && <CheckCircle2 className="w-4 h-4" />}
+          {syncMessage.text}
+        </div>
+      )}
+
+      {/* Greeting section */}
       <div className="mb-11">
         <h1 className="text-[36px] font-semibold text-zinc-800 dark:text-zinc-50 tracking-tight mb-4">
           Olá, <span className="text-[#3169d3] font-bold">{accountName}</span>.
@@ -24,10 +72,18 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Visão Geral (Overview) */}
-      <OverviewSection />
+      {isLoading && !tickets ? (
+        <div className="flex flex-col items-center justify-center p-20 text-zinc-500 gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-[#3169d3]" />
+          <p className="text-sm font-medium">Sincronizando dados com TomTicket...</p>
+        </div>
+      ) : (
+        <>
+          <OverviewSection tickets={tickets || []} />
+          <AnalyticsSection tickets={tickets || []} />
+        </>
+      )}
 
-      <AnalyticsSection />
     </div>
   );
 }

@@ -10,34 +10,40 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Ticket } from "@/types/tomTicket";
+import { useMemo } from "react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export function TopRequestersChart() {
-  const data = {
-    labels: [
-      "Restaurante Sabor & Arte",
-      "Pizzaria Bella Napoli",
-      "Lanchonete Express",
-      "Cafeteria Central",
-      "Churrascaria Gaúcha",
-      "Bistrô Francês",
-      "Sushi Bar Tokyo",
-      "Padaria Pão Quente",
-      "Hamburgueria Artesanal",
-      "Sorveteria Gelato",
-    ],
-    datasets: [
-      {
-        label: "Solicitações",
-        data: [42, 38, 35, 29, 25, 21, 18, 15, 12, 9],
-        // Using a gradient-like approach or emerald color for ranking
-        backgroundColor: "#10b981", // Emerald-500
-        borderRadius: 4,
-        barPercentage: 0.6,
-      },
-    ],
-  };
+interface TopRequestersChartProps {
+  tickets: Ticket[];
+}
+
+export function TopRequestersChart({ tickets }: TopRequestersChartProps) {
+  const data = useMemo(() => {
+    const group: Record<string, number> = {};
+    
+    tickets.forEach(t => {
+      const customer = t.customer_name || "Sem Nome";
+      group[customer] = (group[customer] || 0) + 1;
+    });
+
+    const sortedCustomers = Object.keys(group).sort((a, b) => group[b] - group[a]).slice(0, 10);
+
+    return {
+      labels: sortedCustomers,
+      datasets: [
+        {
+          label: "Solicitações",
+          data: sortedCustomers.map(c => group[c]),
+          // Using a gradient-like approach or emerald color for ranking
+          backgroundColor: "#10b981", // Emerald-500
+          borderRadius: 4,
+          barPercentage: 0.6,
+        },
+      ],
+    };
+  }, [tickets]);
 
   const options = {
     indexAxis: "y" as const,
@@ -74,7 +80,7 @@ export function TopRequestersChart() {
         },
         ticks: {
           color: "#52525b",
-          font: { size: 12, weight: "bold" },
+          font: { size: 12, weight: "bold" as const },
         },
         border: { display: false },
       },
