@@ -2,49 +2,37 @@
 
 import { Pie } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import { Ticket } from "@/types/tomTicket";
-import { useMemo } from "react";
+import { PieChartData } from "@/types/dashboard";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface TicketTypesPieChartProps {
-  tickets: Ticket[];
+  data: PieChartData;
 }
 
-export function TicketTypesPieChart({ tickets }: TicketTypesPieChartProps) {
-  const data = useMemo(() => {
-    const group: Record<string, number> = {};
-    
-    tickets.forEach(t => {
-      const dept = t.department || "Sem Departamento";
-      group[dept] = (group[dept] || 0) + 1;
-    });
+export function TicketTypesPieChart({ data }: TicketTypesPieChartProps) {
+  // Brand Colors
+  const bgColors = [
+    "#3169d3", // Blue
+    "#ef4444", // Red
+    "#10b981", // Emerald
+    "#f59e0b", // Amber
+    "#8b5cf6", // Purple
+    "#06b6d4", // Cyan
+  ];
 
-    const labels = Object.keys(group);
-    
-    // Brand Colors
-    const bgColors = [
-      "#3169d3", // Blue
-      "#ef4444", // Red
-      "#10b981", // Emerald
-      "#f59e0b", // Amber
-      "#8b5cf6", // Purple
-      "#06b6d4", // Cyan
-    ];
-
-    return {
-      labels,
-      datasets: [
-        {
-          data: labels.map(l => group[l]),
-          backgroundColor: bgColors.slice(0, labels.length),
-          borderWidth: 2,
-          borderColor: "#ffffff",
-          hoverOffset: 4,
-        },
-      ],
-    };
-  }, [tickets]);
+  const chartData = {
+    labels: data.map(d => d.name),
+    datasets: [
+      {
+        data: data.map(d => d.value),
+        backgroundColor: bgColors.slice(0, data.length),
+        borderWidth: 2,
+        borderColor: "#ffffff",
+        hoverOffset: 4,
+      },
+    ],
+  };
 
   const options = {
     responsive: true,
@@ -94,7 +82,7 @@ export function TicketTypesPieChart({ tickets }: TicketTypesPieChartProps) {
       </h3>
       <div className="flex-1 w-full relative flex items-center justify-center">
         <div className="w-[85%] h-[85%]">
-          <Pie data={data} options={options} />
+          <Pie data={chartData} options={options} />
         </div>
       </div>
     </div>

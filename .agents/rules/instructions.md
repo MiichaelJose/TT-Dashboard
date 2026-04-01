@@ -2,144 +2,297 @@
 trigger: always_on
 ---
 
-# Regras do Projeto: Dashboard TomTicket MVP
+# Regras do Projeto: Padrões de Arquitetura e Desenvolvimento
 
-## Tech Stack Obrigatória
-- **Frontend:** Next.js 14+ (App Router), TypeScript.
-- **UI:** Tailwind CSS + shadcn/ui + Chart.js (react-chartjs-2).
-- **Estado/Dados:** Redux Toolkit + RTK Query (Obrigatório para cache).
-- **Backend/Auth:** Next.js Route Handlers (Proxy) + Firebase Auth/Firestore.
+---
 
-## Diretrizes de Implementação
-1. **Segurança de API:** Nunca faça chamadas diretas à API do TomTicket pelo client. Use sempre as Route Handlers (`/api/...`) como proxy para proteger o Token.
-2. **Performance:** Implemente cache agressivo via RTK Query para evitar erro 429 (Rate Limit) do TomTicket.
-3. **Persistência:** Salve preferências de filtros no Firestore, mas use `debounce` para evitar excesso de escritas no Firebase.
-4. **Arquitetura:** Siga a estrutura de pastas: `components/ui`, `app/api`, `lib/`, `hooks/`.
+## 🧱 Tech Stack Obrigatória
 
-## Padrão de Componentes
+* **Frontend:** Next.js 14+ (App Router), TypeScript
+* **UI:** Tailwind CSS + shadcn/ui + Chart.js (react-chartjs-2)
+* **Estado/Dados:** Redux Toolkit + RTK Query
+* **Backend/Auth:** Next.js Route Handlers + Firebase (Auth/Firestore)
 
-* Sempre usar function components com TypeScript.
-* Props devem ser tipadas explicitamente.
-* Nunca misturar lógica de negócio com UI.
-* Componentes devem ser pequenos e reutilizáveis.
+---
 
-```tsx
-type Props = {
-  title: string;
-};
+## 🔐 Segurança de API
 
-export function Example({ title }: Props) {
-  return <div>{title}</div>;
+* ❌ Nunca chamar APIs externas diretamente no client
+* ✅ Sempre usar `/api/...` (Route Handlers como proxy)
+* ❌ Nunca expor tokens no frontend
+
+---
+
+## ⚡ Performance
+
+* ✅ Uso obrigatório de cache com RTK Query
+* ❌ Evitar múltiplas chamadas duplicadas
+* ❌ Evitar reprocessamento de dados no frontend
+
+---
+
+## 🧠 Arquitetura (REGRA PRINCIPAL)
+
+A aplicação deve seguir SEMPRE a separação de responsabilidades:
+
+```txt
+Data Source (API / Firebase)
+        ↓
+RTK Query (cache)
+        ↓
+Custom Hooks (orquestração)
+        ↓
+Services (regras de negócio / transformação)
+        ↓
+UI Components (renderização)
+```
+
+---
+
+## 🚨 Regra Crítica: Separação de Responsabilidades
+
+### ❌ PROIBIDO em Components:
+
+* Receber dados brutos (ex: arrays de entidades como `Ticket[]`)
+* Executar lógica de negócio
+* Usar `.map`, `.filter`, `.reduce` para transformar dados
+* Fazer cálculos (métricas, agregações, etc)
+
+---
+
+### ✅ OBRIGATÓRIO:
+
+* Components devem receber dados PRONTOS
+* Toda transformação deve ocorrer em:
+
+```txt
+/src/services/
+```
+
+---
+
+## 📦 Services (Camada de Regras de Negócio)
+
+### Responsabilidade:
+
+* Transformar dados
+* Calcular métricas
+* Adaptar formatos para UI
+
+### Exemplo:
+
+```ts
+export function buildOverviewMetrics(data: Ticket[]): OverviewMetrics {
+  // lógica aqui
 }
 ```
 
 ---
 
-## Data Fetching
+### Regras:
 
-* Proibido usar `fetch` ou `axios` diretamente em componentes.
-* Sempre usar RTK Query (`tomTicketApi`).
-* Nunca usar `useEffect` para buscar dados.
-
----
-
-## Estado
-
-* Estado global: Redux Toolkit
-* Estado remoto/cache: RTK Query
-* Estado local: useState (somente UI)
-* Nunca duplicar dados do RTK Query no Redux
+* ❌ Não usar React
+* ❌ Não acessar DOM
+* ❌ Não fazer chamadas HTTP
+* ✅ Funções puras (pure functions)
 
 ---
 
-## Integrações externas
+## 🪝 Hooks (Orquestração)
 
-* Toda chamada externa deve passar por:
+Local:
 
-  * Route Handler (`/api`)
-  * Depois RTK Query
-* Nunca acessar Firebase diretamente em components
+```txt
+/src/hooks/
+```
 
----
+### Responsabilidade:
 
-## UX padrão
-
-* Loading: usar skeleton (shadcn/ui)
-* Erro: exibir fallback amigável
-* Nunca deixar tela em branco
-
-
+* Consumir RTK Query
+* Chamar services
+* Preparar dados para UI
 
 ---
 
-## Naming Convention
+### Exemplo padrão:
 
-* Componentes: PascalCase (MetricCard.tsx)
-* Hooks: useSomething.ts
-* Utils: camelCase
-* Tipos: PascalCase
+```ts
+export function useDashboardData(companyId: string) {
+  const { data } = useGetTicketsQuery(companyId);
+
+  const overview = useMemo(() => buildOverviewMetrics(data || []), [data]);
+
+  return { overview };
+}
+```
 
 ---
 
+## 🧩 Components (UI)
 
-## Estrutura do projeto
+Local:
 
-── public/                    # Estáticos (imagens, favicon)
-│   ├── favicon.ico
-│   └── images/                # logos, ícones etc.
-│
-├── src/
-│   ├── app/                   # Tudo de rotas e páginas (App Router)
-│   │   ├── api/               # Proxy para TomTicket (esconde token)
-│   │   │   └── proxy-tomticket/
-│   │   │       └── route.ts
-│   │   ├── dashboard/         # Rotas do dashboard principal
-│   │   │   ├── page.tsx       # /dashboard (overview)
-│   │   │   └── layout.tsx     # Layout compartilhado do dashboard (sidebar, header)
-│   │   ├── login/             # Página de login
-│   │   │   └── page.tsx
-│   │   ├── layout.tsx         # Root layout global (html, body, providers)
-│   │   ├── page.tsx           # Landing ou redirect para login/dashboard
-│   │   └── globals.css        # Tailwind + estilos globais
-│   │
-│   ├── components/            # Todos os componentes aqui (sem subpastas pesadas)
-│   │   ├── ui/                # Primitivos reutilizáveis (simples)
-│   │   │   ├── Button.tsx
-│   │   │   ├── Card.tsx
-│   │   │   ├── Select.tsx
-│   │   │   ├── Loading.tsx
-│   │   │   └── ... (só o que usar)
-│   │   ├── dashboard/         # Específicos do dashboard
-│   │   │   ├── MetricCard.tsx
-│   │   │   ├── ChartWrapper.tsx
-│   │   │   ├── FilterSelect.tsx
-│   │   │   ├── OperatorTable.tsx
-│   │   │   └── Sidebar.tsx    # Menu lateral
-│   │   └── AuthProvider.tsx   # Provider para auth (Firebase/Redux)
-│   │
-│   ├── lib/                   # Lógica de negócio e configs (leve)
-│   │   ├── firebase.ts        # Config client + auth helpers
-│   │   ├── redux/             # Redux centralizado
-│   │   │   ├── store.ts
-│   │   │   ├── hooks.ts       # useAppDispatch, useAppSelector
-│   │   │   └── slices/        # Slices separados
-│   │   │       ├── authSlice.ts
-│   │   │       ├── filtersSlice.ts
-│   │   │       └── tomTicketApi.ts  # RTK Query para API calls
-│   │   └── utils/             # Funções helpers
-│   │       ├── formatters.ts  # moeda, datas, números
-│   │       └── date.ts
-│   │
-│   ├── types/                 # Tipos globais (evita duplicação)
-│   │   ├── index.ts
-│   │   ├── tomTicket.ts       # Interfaces da API
-│   │   └── dashboard.ts       # Tipos de métricas/layout
-│   │
-│   └── hooks/                 # Hooks custom (opcional, se precisar)
-│       └── useAuth.ts
+```txt
+/src/components/
+```
 
+---
 
-## Comportamento do Agent
-- Sempre escreva código com Type Hints (TypeScript).
-- Ao sugerir componentes, priorize os do shadcn/ui.
-- Se eu pedir uma nova feature, verifique se ela impacta o Rate Limit da API antes de codar.
+### Regras obrigatórias:
+
+* ❌ Não acessar API
+* ❌ Não usar lógica de negócio
+* ❌ Não transformar dados
+* ❌ Não receber entidades cruas (ex: `Ticket[]`)
+
+---
+
+### ✅ Props devem ser específicas e tipadas:
+
+```ts
+type Props = {
+  data: OverviewMetrics;
+};
+```
+
+---
+
+### ❌ Errado:
+
+```ts
+type Props = {
+  tickets: Ticket[];
+};
+```
+
+---
+
+## 📊 Tipagem (OBRIGATÓRIO)
+
+Local:
+
+```txt
+/src/types/
+```
+
+---
+
+### Regras:
+
+* Tipos devem representar:
+
+  * Entidades (API)
+  * Modelos de UI (View Models)
+
+---
+
+### Exemplo:
+
+```ts
+// entidade (API)
+export interface Ticket {}
+
+// modelo para UI
+export interface OverviewMetrics {
+  total: number;
+  open: number;
+  closed: number;
+}
+```
+
+---
+
+## 🔄 Data Fetching
+
+* ❌ Proibido usar `fetch` ou `axios` em components
+* ❌ Proibido usar `useEffect` para buscar dados
+* ✅ Usar RTK Query
+
+---
+
+## 🧠 Estado
+
+* Global → Redux Toolkit
+* Server/cache → RTK Query
+* Local → useState (apenas UI)
+
+---
+
+## 🔌 Integrações Externas
+
+Fluxo obrigatório:
+
+```txt
+External API → /api → RTK Query → Hook → Service → UI
+```
+
+---
+
+## 🎨 UX Padrão
+
+* Loading → Skeleton (shadcn/ui)
+* Error → fallback amigável
+* ❌ Nunca deixar tela em branco
+
+---
+
+## 📛 Naming Convention
+
+* Components → PascalCase
+* Hooks → useSomething
+* Services → something.service.ts
+* Types → PascalCase
+* Utils → camelCase
+
+---
+
+## 🧱 Estrutura de Pastas (Padrão)
+
+* `/app` → rotas
+* `/components` → UI
+* `/services` → regras de negócio
+* `/hooks` → orquestração
+* `/types` → tipagem global
+* `/lib` → configs/shared
+* `/store` → Redux
+
+---
+
+## 🚨 Regra de Ouro
+
+Se qualquer componente:
+
+* recebe dados brutos (ex: arrays da API)
+* faz transformação de dados
+* contém lógica de negócio
+
+👉 Está ERRADO e deve ser refatorado.
+
+---
+
+## 🧠 Diretriz para IA (CRÍTICO)
+
+Sempre que gerar código:
+
+1. Criar tipos primeiro (`/types`)
+2. Criar service se houver transformação
+3. Criar hook para orquestração
+4. Criar component apenas para UI
+
+---
+
+## 🚀 Arquitetura Evolutiva (Escala)
+
+A aplicação deve permitir evolução para:
+
+```txt
+Backend (processamento)
+        ↓
+Firebase (dados prontos)
+        ↓
+Frontend (apenas renderização)
+```
+
+O frontend NÃO deve depender de processamento pesado no estado final.
+
+---

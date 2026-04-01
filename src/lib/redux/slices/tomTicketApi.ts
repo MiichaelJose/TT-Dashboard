@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { auth } from '@/lib/firebase';
 import { Ticket, SyncResponse } from '@/types/tomTicket';
+import { DashboardMetrics } from '@/types/dashboard';
 
 // Configurando BaseQuery com interceptador de token JWT
 const baseQuery = fetchBaseQuery({
@@ -20,6 +21,13 @@ export const tomTicketApi = createApi({
   baseQuery,
   tagTypes: ['Tickets'],
   endpoints: (builder) => ({
+    // Rota GET /api/metrics (para posterior evolução Server Side das métricas)
+    getMetrics: builder.query<DashboardMetrics, string>({
+      query: (companyId) => `/metrics?companyId=${companyId}`,
+      providesTags: ['Tickets'],
+      keepUnusedDataFor: 600,
+    }),
+    
     // Rota GET /api/tickets
     getTickets: builder.query<Ticket[], string>({
       query: (companyId) => `/tickets?companyId=${companyId}`,
@@ -29,7 +37,7 @@ export const tomTicketApi = createApi({
     
     // Rota POST /api/sync
     triggerSync: builder.mutation<SyncResponse, string>({
-      query: (companyId) => ({
+      query: (companyId) => ({ 
         url: '/sync',
         method: 'POST',
         body: { companyId },
@@ -45,5 +53,5 @@ export const tomTicketApi = createApi({
   }),
 });
 
-export const { useGetTicketsQuery, useTriggerSyncMutation } = tomTicketApi;
+export const { useGetTicketsQuery, useGetMetricsQuery, useTriggerSyncMutation } = tomTicketApi;
 

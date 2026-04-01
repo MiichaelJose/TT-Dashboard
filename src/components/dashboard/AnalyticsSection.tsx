@@ -6,13 +6,13 @@ import { OpenTicketsByCategoryChart } from "./charts/OpenTicketsByCategoryChart"
 import { TicketTypesPieChart } from "./charts/TicketTypesPieChart";
 import { TicketsByCategoryChart } from "./charts/TicketsByCategoryChart";
 import { TopRequestersChart } from "./charts/TopRequestersChart";
-import { Ticket } from "@/types/tomTicket";
+import { DashboardMetrics } from "@/types/dashboard";
 
 interface AnalyticsSectionProps {
-  tickets: Ticket[];
+  metrics: Omit<DashboardMetrics, "overview">;
 }
 
-export function AnalyticsSection({ tickets }: AnalyticsSectionProps) {
+export function AnalyticsSection({ metrics }: AnalyticsSectionProps) {
   return (
     <section className="mb-10 w-full animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both mt-12">
       <div className="flex items-center justify-between mb-5">
@@ -28,23 +28,23 @@ export function AnalyticsSection({ tickets }: AnalyticsSectionProps) {
 
       {/* Row 1: Abertos vs Fechados & Em Aberto Por Categoria */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <TicketsOpenVsClosedChart tickets={tickets} />
-        <OpenTicketsByCategoryChart tickets={tickets} />
+        <TicketsOpenVsClosedChart data={metrics.ticketsOpenVsClosed} />
+        <OpenTicketsByCategoryChart data={metrics.openTicketsByCategory} />
       </div>
 
       {/* Row 2: Tipo de Chamados & Chamados por Categoria */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="lg:col-span-1">
-          <TicketTypesPieChart tickets={tickets} />
+          <TicketTypesPieChart data={metrics.ticketTypes} />
         </div>
         <div className="lg:col-span-2">
-          <TicketsByCategoryChart tickets={tickets} />
+          <TicketsByCategoryChart data={metrics.ticketsByCategory} />
         </div>
       </div>
 
       {/* Row 3: Top 10 Solicitantes */}
       <div className="grid grid-cols-1 gap-4">
-        <TopRequestersChart tickets={tickets} />
+        <TopRequestersChart data={metrics.topRequesters} />
       </div>
 
     </section>

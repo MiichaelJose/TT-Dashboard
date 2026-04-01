@@ -10,40 +10,28 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Ticket } from "@/types/tomTicket";
-import { useMemo } from "react";
+import { RankingData } from "@/types/dashboard";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 interface TopRequestersChartProps {
-  tickets: Ticket[];
+  data: RankingData;
 }
 
-export function TopRequestersChart({ tickets }: TopRequestersChartProps) {
-  const data = useMemo(() => {
-    const group: Record<string, number> = {};
-    
-    tickets.forEach(t => {
-      const customer = t.customer_name || "Sem Nome";
-      group[customer] = (group[customer] || 0) + 1;
-    });
-
-    const sortedCustomers = Object.keys(group).sort((a, b) => group[b] - group[a]).slice(0, 10);
-
-    return {
-      labels: sortedCustomers,
-      datasets: [
-        {
-          label: "Solicitações",
-          data: sortedCustomers.map(c => group[c]),
-          // Using a gradient-like approach or emerald color for ranking
-          backgroundColor: "#10b981", // Emerald-500
-          borderRadius: 4,
-          barPercentage: 0.6,
-        },
-      ],
-    };
-  }, [tickets]);
+export function TopRequestersChart({ data }: TopRequestersChartProps) {
+  const chartData = {
+    labels: data.map(d => d.name),
+    datasets: [
+      {
+        label: "Solicitações",
+        data: data.map(d => d.total),
+        // Using a gradient-like approach or emerald color for ranking
+        backgroundColor: "#10b981", // Emerald-500
+        borderRadius: 4,
+        barPercentage: 0.6,
+      },
+    ],
+  };
 
   const options = {
     indexAxis: "y" as const,
@@ -93,7 +81,7 @@ export function TopRequestersChart({ tickets }: TopRequestersChartProps) {
         Top 10 Solicitantes por Chamados
       </h3>
       <div className="flex-1 w-full relative">
-        <Bar data={data} options={options} />
+        <Bar data={chartData} options={options} />
       </div>
     </div>
   );

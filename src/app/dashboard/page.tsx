@@ -5,7 +5,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/lib/redux/store";
 import { OverviewSection } from "@/components/dashboard/OverviewSection";
 import { AnalyticsSection } from "@/components/dashboard/AnalyticsSection";
-import { useTriggerSyncMutation, useGetTicketsQuery } from "@/lib/redux/slices/tomTicketApi";
+import { useTriggerSyncMutation } from "@/lib/redux/slices/tomTicketApi";
+import { useDashboardData } from "@/hooks/useDashboardData";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
@@ -13,16 +14,16 @@ export default function DashboardPage() {
   const companyId = user?.companyId as string;
 
   const [triggerSync, { isLoading: isSyncing }] = useTriggerSyncMutation();
-  const { data: tickets, isLoading: isFetchingTickets } = useGetTicketsQuery(companyId, {
-    skip: !companyId,
-  });
+  
+  // Hook centralizado para as métricas (faz a ponte entre Front e Service/API)
+  const { metrics, loading: isFetchingMetrics } = useDashboardData(companyId);
 
   const [syncMessage, setSyncMessage] = useState<{ text: string; type: 'info' | 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     if (!companyId) return;
 
-    // Trigger sync on mount
+    // Trigger sync on mount para aquecer os mocks e Firebase
     triggerSync(companyId)
       .unwrap()
       .then((res) => {
@@ -42,7 +43,7 @@ export default function DashboardPage() {
 
   const accountName = user?.displayName || user?.email?.split('@')[0] || "usuário";
 
-  const isLoading = isSyncing || isFetchingTickets;
+  const isLoading = isSyncing || isFetchingMetrics;
 
   return (
     <div className="max-w-[1400px] w-full mx-auto relative">
@@ -72,16 +73,21 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {isLoading && !tickets ? (
+      {isLoading && !metrics ? (
         <div className="flex flex-col items-center justify-center p-20 text-zinc-500 gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-[#3169d3]" />
-          <p className="text-sm font-medium">Sincronizando dados com TomTicket...</p>
+          <p className="text-sm font-medium">Extraindo métricas do Dashboard...</p>
         </div>
-      ) : (
+      ) : metrics ? (
         <>
-          <OverviewSection tickets={tickets || []} />
-          <AnalyticsSection tickets={tickets || []} />
+          <OverviewSection data={metrics.overview} />
+          <AnalyticsSection metrics={metrics} />
         </>
+      ) : (
+        <div className="flex flex-col items-center justify-center p-20 text-zinc-500 gap-4">
+          <AlertCircle className="w-8 h-8 text-orange-400" />
+          <p className="text-sm font-medium">Nenhum dado encontrado para exibição.</p>
+        </div>
       )}
 
     </div>

@@ -10,43 +10,27 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Ticket } from "@/types/tomTicket";
-import { useMemo } from "react";
+import { BarChartData } from "@/types/dashboard";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 interface OpenTicketsByCategoryChartProps {
-  tickets: Ticket[];
+  data: BarChartData;
 }
 
-export function OpenTicketsByCategoryChart({ tickets }: OpenTicketsByCategoryChartProps) {
-  const data = useMemo(() => {
-    const group: Record<string, number> = {};
-    
-    // Filtra apenas chamados em aberto
-    const openTickets = tickets.filter(t => !(t.status || '').toLowerCase().includes('fechado'));
-
-    openTickets.forEach(t => {
-      const cat = t.category || "Sem Categoria";
-      group[cat] = (group[cat] || 0) + 1;
-    });
-
-    // Sort categories desc by count
-    const sortedCategories = Object.keys(group).sort((a, b) => group[b] - group[a]).slice(0, 10);
-
-    return {
-      labels: sortedCategories,
-      datasets: [
-        {
-          label: "Em Aberto",
-          data: sortedCategories.map(cat => group[cat]),
-          backgroundColor: "#f97316", // Orange-500
-          borderRadius: 4,
-          barPercentage: 0.5,
-        },
-      ],
-    };
-  }, [tickets]);
+export function OpenTicketsByCategoryChart({ data }: OpenTicketsByCategoryChartProps) {
+  const chartData = {
+    labels: data.map(d => d.label),
+    datasets: [
+      {
+        label: "Em Aberto",
+        data: data.map(d => d.value),
+        backgroundColor: "#f97316", // Orange-500
+        borderRadius: 4,
+        barPercentage: 0.5,
+      },
+    ],
+  };
 
   const options = {
     indexAxis: "y" as const,
@@ -96,7 +80,7 @@ export function OpenTicketsByCategoryChart({ tickets }: OpenTicketsByCategoryCha
         Chamados em Aberto por Categoria
       </h3>
       <div className="flex-1 w-full relative">
-        <Bar data={data} options={options} />
+        <Bar data={chartData} options={options} />
       </div>
     </div>
   );
