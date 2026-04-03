@@ -16,7 +16,7 @@ export default function DashboardPage() {
   const [triggerSync, { isLoading: isSyncing }] = useTriggerSyncMutation();
   
   // Hook centralizado para as métricas (faz a ponte entre Front e Service/API)
-  const { metrics, loading: isFetchingMetrics } = useDashboardData(companyId);
+  const { details, loading: isFetchingMetrics } = useDashboardData(companyId);
 
   const [syncMessage, setSyncMessage] = useState<{ text: string; type: 'info' | 'success' | 'error' } | null>(null);
 
@@ -73,15 +73,20 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {isLoading && !metrics ? (
+      {isLoading && !details ? (
         <div className="flex flex-col items-center justify-center p-20 text-zinc-500 gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-[#3169d3]" />
           <p className="text-sm font-medium">Extraindo métricas do Dashboard...</p>
         </div>
-      ) : metrics ? (
+      ) : details ? (
         <>
-          <OverviewSection data={metrics.overview} />
-          <AnalyticsSection metrics={metrics} />
+          <OverviewSection 
+            summary={details.summary} 
+            sla={details.sla} 
+            time={details.time} 
+            csat={details.csat} 
+          />
+          <AnalyticsSection charts={details.charts} />
         </>
       ) : (
         <div className="flex flex-col items-center justify-center p-20 text-zinc-500 gap-4">

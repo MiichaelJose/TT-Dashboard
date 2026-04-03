@@ -6,13 +6,13 @@ import { OpenTicketsByCategoryChart } from "./charts/OpenTicketsByCategoryChart"
 import { TicketTypesPieChart } from "./charts/TicketTypesPieChart";
 import { TicketsByCategoryChart } from "./charts/TicketsByCategoryChart";
 import { TopRequestersChart } from "./charts/TopRequestersChart";
-import { DashboardMetrics } from "@/types/dashboard";
+import { DashboardDetails } from "@/types/dashboard";
 
 interface AnalyticsSectionProps {
-  metrics: Omit<DashboardMetrics, "overview">;
+  charts: DashboardDetails["charts"];
 }
 
-export function AnalyticsSection({ metrics }: AnalyticsSectionProps) {
+export function AnalyticsSection({ charts }: AnalyticsSectionProps) {
   return (
     <section className="mb-10 w-full animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both mt-12">
       <div className="flex items-center justify-between mb-5">
@@ -28,23 +28,23 @@ export function AnalyticsSection({ metrics }: AnalyticsSectionProps) {
 
       {/* Row 1: Abertos vs Fechados & Em Aberto Por Categoria */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <TicketsOpenVsClosedChart data={metrics.ticketsOpenVsClosed} />
-        <OpenTicketsByCategoryChart data={metrics.openTicketsByCategory} />
+        <TicketsOpenVsClosedChart data={charts.timeSeries} />
+        <OpenTicketsByCategoryChart data={charts.categories.open} />
       </div>
 
       {/* Row 2: Tipo de Chamados & Chamados por Categoria */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="lg:col-span-1">
-          <TicketTypesPieChart data={metrics.ticketTypes} />
+          <TicketTypesPieChart data={charts.distribution} />
         </div>
         <div className="lg:col-span-2">
-          <TicketsByCategoryChart data={metrics.ticketsByCategory} />
+          <TicketsByCategoryChart data={charts.categories.all} />
         </div>
       </div>
 
       {/* Row 3: Top 10 Solicitantes */}
       <div className="grid grid-cols-1 gap-4">
-        <TopRequestersChart data={metrics.topRequesters} />
+        <TopRequestersChart data={charts.ranking} />
       </div>
 
     </section>

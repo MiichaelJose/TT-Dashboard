@@ -9,22 +9,25 @@ import {
 } from "lucide-react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import { OverviewMetrics } from "@/types/dashboard";
+import { DashboardDetails } from "@/types/dashboard";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface OverviewSectionProps {
-  data: OverviewMetrics;
+  summary: DashboardDetails['summary'];
+  sla: DashboardDetails['sla'];
+  time: DashboardDetails['time'];
+  csat: DashboardDetails['csat'];
 }
 
-export function OverviewSection({ data }: OverviewSectionProps) {
+export function OverviewSection({ summary, sla, time, csat }: OverviewSectionProps) {
   const gaugeData = {
     labels: ["SLA Atual", "Faltante para Meta"],
     datasets: [
       {
-        data: [data.csat.score, 100 - data.csat.score],
+        data: [csat.score, 100 - csat.score],
         backgroundColor: [
-          data.csat.status === "ok" ? "#10b981" : "#f97316", 
+          csat.status === "ok" ? "#10b981" : "#f97316", 
           "#f4f4f5"
         ],
         borderWidth: 0,
@@ -65,7 +68,7 @@ export function OverviewSection({ data }: OverviewSectionProps) {
           </div>
           <div className="mt-auto">
             <p className="text-[32px] font-bold text-zinc-900 dark:text-zinc-100 tracking-tight leading-none mb-1">
-              {data.totalTickets.toLocaleString("pt-BR")}
+              {summary.totalTickets.toLocaleString("pt-BR")}
             </p>
             <p className="text-[12.5px] text-zinc-400 dark:text-zinc-500 font-medium">
               Volume no período
@@ -86,10 +89,10 @@ export function OverviewSection({ data }: OverviewSectionProps) {
           </div>
           <div className="mt-auto relative z-10">
             <p className="text-[32px] font-bold text-emerald-600 dark:text-emerald-400 tracking-tight leading-none mb-2">
-              {data.totalClosed.toLocaleString("pt-BR")}
+              {summary.totalClosed.toLocaleString("pt-BR")}
             </p>
             <div className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 text-[12px] font-medium text-emerald-700 dark:text-emerald-400">
-              {data.closureRate}% taxa de fechamento
+              {summary.closureRate}% taxa de fechamento
             </div>
           </div>
         </div>
@@ -107,7 +110,7 @@ export function OverviewSection({ data }: OverviewSectionProps) {
           </div>
           <div className="mt-auto relative z-10">
             <p className="text-[32px] font-bold text-orange-500 dark:text-orange-400 tracking-tight leading-none mb-1">
-              {data.totalOpen.toLocaleString("pt-BR")}
+              {summary.totalOpen.toLocaleString("pt-BR")}
             </p>
             <p className="text-[12.5px] text-orange-600/70 dark:text-orange-400/70 font-medium">
               Aguardando atendimento
@@ -128,25 +131,25 @@ export function OverviewSection({ data }: OverviewSectionProps) {
           <div className="mt-auto space-y-3">
             <div className="flex items-center justify-between text-[13px] font-medium">
               <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded">
-                {data.sla.attendedPercentage}% atendido
+                {sla.attendedPercentage}% atendido
               </span>
               <span className="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded">
-                {data.sla.overduePercentage}% extrapolado
+                {sla.overduePercentage}% extrapolado
               </span>
             </div>
             {/* ProgressBar Visual SLA */}
             <div className="w-full h-1.5 rounded-full bg-red-100 dark:bg-red-900/30 overflow-hidden flex">
-              <div className="h-full bg-emerald-500" style={{ width: `${data.sla.attendedPercentage}%` }} />
-              <div className="h-full bg-red-500" style={{ width: `${data.sla.overduePercentage}%` }} />
+              <div className="h-full bg-emerald-500" style={{ width: `${sla.attendedPercentage}%` }} />
+              <div className="h-full bg-red-500" style={{ width: `${sla.overduePercentage}%` }} />
             </div>
             <div className="flex flex-col gap-0.5 pt-1">
               <div className="flex justify-between items-center text-[13px] text-zinc-600 dark:text-zinc-300">
                 <span>TME:</span>
-                <span className="font-semibold text-zinc-900 dark:text-white">{data.time.tme}</span>
+                <span className="font-semibold text-zinc-900 dark:text-white">{time.tme}</span>
               </div>
               <div className="flex justify-between items-center text-[13px] text-zinc-600 dark:text-zinc-300">
                 <span>TMA:</span>
-                <span className="font-semibold text-zinc-900 dark:text-white">{data.time.tma}</span>
+                <span className="font-semibold text-zinc-900 dark:text-white">{time.tma}</span>
               </div>
             </div>
           </div>
@@ -169,18 +172,24 @@ export function OverviewSection({ data }: OverviewSectionProps) {
             </div>
             <div className="flex flex-col items-center translate-y-2">
               <span className="text-[22px] font-bold text-zinc-900 dark:text-white leading-none">
-                91.7%
+                {csat.score}%
               </span>
               <span className="text-[11px] text-zinc-400 font-medium uppercase tracking-wider mt-1">
-                Meta 95%
+                Meta {csat.target}%
               </span>
             </div>
           </div>
           
           <div className="w-full text-center mt-4">
-            <span className="inline-block text-[12px] font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2.5 py-1 rounded-md">
-              Abaixo da meta
-            </span>
+            {csat.status === "below" ? (
+              <span className="inline-block text-[12px] font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2.5 py-1 rounded-md">
+                Abaixo da meta
+              </span>
+            ) : (
+              <span className="inline-block text-[12px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-md">
+                Dentro da meta
+              </span>
+            )}
           </div>
         </div>
 

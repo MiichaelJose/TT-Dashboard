@@ -2,94 +2,78 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyAuthToken } from "@/lib/apiAuth";
 import { Ticket } from "@/types/tomTicket";
+import { buildDashboardDetails } from "@/services/metrics.service";
 
-// Simulation of external API Call
-async function fetchMockTickets(): Promise<Ticket[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
+const TOMTICKET_API_BASE = process.env.TOMTICKET_API_BASE;
 
-  return [
-    {
-      id: "t1",
-      protocol: 12345,
-      subject: "Erro ao gerar nota fiscal",
-      message: "O sistema trava ao tentar emitir a nota fiscal.",
-      status: "Em atendimento",
-      situation: "Aguardando equipe técnica",
-      priority: 3,
-      created_at: "2026-03-25T10:00:00Z",
-      updated_at: "2026-03-26T11:00:00Z",
-      operator: "João Silva",
-      department: "Suporte N2",
-      category: "Colibri POS",
-      customer_name: "Restaurante Sabor & Arte",
-      customer_email: "contato@saborearte.com"
-    },
-    {
-      id: "t2",
-      protocol: 12346,
-      subject: "Dúvida sobre fechamento de caixa",
-      message: "Como configurar as sangrias corretamente?",
-      status: "Fechado",
-      situation: "Resolvido",
-      priority: 1,
-      created_at: "2026-03-23T09:00:00Z",
-      updated_at: "2026-03-23T10:30:00Z",
-      operator: "Maria Souza",
-      department: "Atendimento N1",
-      category: "Manager - PDV Gold",
-      customer_name: "Pizzaria Bella Napoli",
-      customer_email: "gerencia@bellanapoli.com"
-    },
-    {
-      id: "t3",
-      protocol: 12347,
-      subject: "Equipamento não conecta na rede",
-      message: "A balança perdeu a comunicação com o PDV.",
-      status: "Em aberto",
-      situation: "Novo",
-      priority: 4,
-      created_at: "2026-03-27T08:15:00Z",
-      updated_at: "2026-03-27T08:15:00Z",
-      operator: "Sem operador",
-      department: "Infraestrutura",
-      category: "Infraestrutura",
-      customer_name: "Lanchonete Express",
-      customer_email: "express@lanchonete.com.br"
-    },
-    {
-      id: "t4",
-      protocol: 12348,
-      subject: "Solicitação de novo usuário",
-      message: "Favor criar usuário para o novo gerente.",
-      status: "Fechado",
-      situation: "Resolvido",
-      priority: 2,
-      created_at: "2026-03-20T14:20:00Z",
-      updated_at: "2026-03-21T09:10:00Z",
-      operator: "Maria Souza",
-      department: "Atendimento N1",
-      category: "Habibs Bordéro",
-      customer_name: "Cafeteria Central",
-      customer_email: "admin@cafeteria.com"
-    },
-    {
-      id: "t5",
-      protocol: 12349,
-      subject: "Integração iFood não desce pedidos",
-      message: "Os pedidos do iFood pararam de integrar no Colibri Fácil há 30 min.",
-      status: "Em atendimento",
-      situation: "Análise",
-      priority: 5,
-      created_at: "2026-03-27T10:05:00Z",
-      updated_at: "2026-03-27T10:45:00Z",
-      operator: "João Silva",
-      department: "Suporte N2",
-      category: "Colibri Fácil",
-      customer_name: "Burger & Co",
-      customer_email: "delivery@burgerco.com"
+/**
+ * Normaliza o token garantindo que seja sempre uma string limpa
+ */
+function parseIntegrationToken(token: unknown): string {
+  if (typeof token === 'object' && token !== null) {
+    const objToken = token as Record<string, unknown>;
+    return String(objToken.token || objToken.key || JSON.stringify(token)).trim();
+  }
+  return String(token).trim();
+}
+
+/**
+ * Adapter Pattern: Converte a estrutura recebida da API externa (muitas vezes em PT-BR)
+ * para a interface padronizada interna 'Ticket'.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapTomTicketToInternal(t: any): Ticket {
+  const statusValue = String(t.status || t.situation || "");
+  const isClosed = statusValue.toLowerCase().includes('fechado') || t.status === 2 || t.status === 3;
+  
+  return {
+    id: String(t.id_chamado || t.id || Math.random().toString(36).substring(2, 11)),
+    protocol: t.protocolo || t.protocol || 0,
+    subject: t.assunto || t.subject || "Sem Assunto",
+    message: t.mensagem || t.message || "",
+    status: t.situacao || t.status || (isClosed ? "Fechado" : "Aberto"), 
+    situation: t.situacao || "Normal",
+    priority: t.prioridade || t.priority || 1,
+    created_at: t.data_inclusao || t.data_criacao || t.created_at || new Date().toISOString(),
+    updated_at: t.data_alteracao || t.updated_at || new Date().toISOString(),
+    operator: t.nome_atendente || t.operator || "Sem Operador",
+    department: t.nome_departamento || t.department || "Geral",
+    category: t.nome_categoria || t.category || "Geral",
+    customer_name: t.nome_cliente || t.customer_name || "Desconhecido",
+    customer_email: t.email_cliente || t.customer_email || ""
+  };
+}
+
+/**
+ * Engine responsável unicamente no networking (HTTP Fetch) e repasse para o Adapter.
+ */
+async function fetchTomTicketTickets(rawToken: unknown): Promise<Ticket[]> {
+  try {
+    const token = parseIntegrationToken(rawToken);
+    
+    const res = await fetch(`${TOMTICKET_API_BASE}/ticket/list`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      },
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      throw new Error(`Status HTTP Inesperado: ${res.status} ao acessar a API do TomTicket.`);
     }
-  ];
+
+    const payload = await res.json();
+    
+    // Previne quebras assumindo que a payload possa encapsular o array na prop 'data'
+    const rawArray = Array.isArray(payload) ? payload : (payload.data || []);
+
+    return rawArray.map(mapTomTicketToInternal);
+
+  } catch (error) {
+    console.error("[TomTicket Fetch Error]:", error);
+    throw error;
+  }
 }
 
 export async function POST(req: Request) {
@@ -118,6 +102,7 @@ export async function POST(req: Request) {
     if (!tokenSnap.exists() || !tokenSnap.val()) {
       return NextResponse.json({ error: "Integração TomTicket não configurada ou Token Ausente." }, { status: 400 });
     }
+    const token = tokenSnap.val();
 
     // Controle Anti-F5
     const syncRef = adminDb.ref(`sync/${companyId}`);
@@ -135,15 +120,22 @@ export async function POST(req: Request) {
     await syncRef.update({ isSyncing: true });
 
     try {
-      // API call realocada com mock no momento
-      const tickets = await fetchMockTickets();
+      // Busca dados reais de produção
+      const tickets = await fetchTomTicketTickets(token);
 
       // Mapeamento em massa (Batch Update) para o Firebase Realtime Database
-      const updates: Record<string, Ticket | string | number | boolean> = {};
+      const updates: Record<string, any> = {};
       
-      tickets.forEach((ticket) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tickets.forEach((ticket: any) => {
         updates[`tickets/${companyId}/${ticket.id}`] = ticket;
       });
+
+      const period = new Date().toISOString().slice(0, 7); // Format: YYYY-MM
+      const details = buildDashboardDetails(tickets, period);
+
+      updates[`metrics/${companyId}/overview/current`] = details;
+      updates[`metrics/${companyId}/overview/${period}`] = details;
       
       updates[`sync/${companyId}/lastSyncAt`] = Date.now();
       updates[`sync/${companyId}/isSyncing`] = false;
@@ -163,6 +155,6 @@ export async function POST(req: Request) {
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Invalid or expired token')) {
       return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
-    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno do servidor.", details: String(error) }, { status: 500 });
   }
 }

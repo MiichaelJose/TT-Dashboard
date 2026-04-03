@@ -42,11 +42,42 @@ export type TimeSeriesData = {
   closed: number;
 }[];
 
-export interface DashboardMetrics {
-  overview: OverviewMetrics;
-  ticketsOpenVsClosed: TimeSeriesData;
-  openTicketsByCategory: BarChartData;
-  ticketsByCategory: BarChartData;
-  ticketTypes: PieChartData;
-  topRequesters: RankingData;
+export interface DashboardDetails {
+  summary: {
+    totalTickets: number;
+    totalClosed: number;
+    totalOpen: number;
+    closureRate: number;
+  };
+
+  sla: {
+    attendedPercentage: number;
+    overduePercentage: number;
+  };
+
+  time: {
+    tme: string;
+    tma: string;
+  };
+
+  csat: {
+    score: number;
+    target: number;
+    status: "ok" | "below";
+  };
+
+  charts: {
+    timeSeries: TimeSeriesData;
+    categories: {
+      open: BarChartData;
+      all: BarChartData;
+    };
+    distribution: PieChartData;
+    ranking: RankingData;
+  };
+
+  meta: {
+    generatedAt: number;
+    period: string;
+  };
 }

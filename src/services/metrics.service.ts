@@ -1,8 +1,7 @@
 import { Ticket } from "@/types/tomTicket";
 import { 
   BarChartData, 
-  DashboardMetrics, 
-  OverviewMetrics, 
+  DashboardDetails, 
   PieChartData, 
   RankingData, 
   TimeSeriesData 
@@ -10,51 +9,21 @@ import {
 
 /**
  * Funções puras para processamento e redução de array de tickets
- * Pode rodar no Next API Route ou no Browser.
+ * Roda EXCLUSIVAMENTE no backend (Node via API Route)
  */
-
-export function buildOverviewMetrics(tickets: Ticket[]): OverviewMetrics {
-  const total = tickets.length;
-  const closed = tickets.filter(t => (t.status || '').toLowerCase().includes('fechado')).length;
-  const open = total - closed;
-  
-  // Mock fallback logic or actual SLA logic later
-  const closureRate = total > 0 ? Number(((closed / total) * 100).toFixed(1)) : 0;
-
-  return {
-    totalTickets: total,
-    totalClosed: closed,
-    totalOpen: open,
-    closureRate,
-    sla: {
-      attendedPercentage: 76.8, // Replace with real SLA map if available in tickets
-      overduePercentage: 23.2,
-    },
-    time: {
-      tme: "02:45:12", // Placeholder for actual Time to Respond calculation
-      tma: "01:53:09",
-    },
-    csat: {
-      score: 91.7,
-      target: 95.0,
-      status: 91.7 >= 95.0 ? "ok" : "below",
-    }
-  };
-}
 
 export function buildTimeSeriesMetrics(tickets: Ticket[]): TimeSeriesData {
   const group: Record<string, { open: number; closed: number }> = {};
 
   tickets.forEach((t) => {
     const date = new Date(t.created_at);
-    // Simple mock MM/YY bucket
     const monthStr = date.toLocaleString('pt-BR', { month: 'short' });
     const yearStr = date.toLocaleString('pt-BR', { year: '2-digit' });
     const label = `${monthStr.charAt(0).toUpperCase() + monthStr.slice(1)}/${yearStr}`;
 
     if (!group[label]) group[label] = { open: 0, closed: 0 };
 
-    const isClosed = (t.status || '').toLowerCase().includes('fechado');
+    const isClosed = String(t.status || '').toLowerCase().includes('fechado');
     if (isClosed) group[label].closed += 1;
     else group[label].open += 1;
   });
@@ -73,9 +42,9 @@ export function buildCategoryMetrics(tickets: Ticket[], filterStatus?: 'open' | 
   
   let validTickets = tickets;
   if (filterStatus === 'open') {
-    validTickets = tickets.filter(t => !(t.status || '').toLowerCase().includes('fechado'));
+    validTickets = tickets.filter(t => !String(t.status || '').toLowerCase().includes('fechado'));
   } else if (filterStatus === 'closed') {
-    validTickets = tickets.filter(t => (t.status || '').toLowerCase().includes('fechado'));
+    validTickets = tickets.filter(t => String(t.status || '').toLowerCase().includes('fechado'));
   }
 
   validTickets.forEach(t => {
@@ -121,13 +90,44 @@ export function buildRankingMetrics(tickets: Ticket[]): RankingData {
   }));
 }
 
-export function buildDashboardMetrics(tickets: Ticket[]): DashboardMetrics {
+export function buildDashboardDetails(tickets: Ticket[], period: string = "current"): DashboardDetails {
+  const total = tickets.length;
+  const closed = tickets.filter(t => String(t.status || '').toLowerCase().includes('fechado')).length;
+  const open = total - closed;
+  const closureRate = total > 0 ? Number(((closed / total) * 100).toFixed(1)) : 0;
+
   return {
-    overview: buildOverviewMetrics(tickets),
-    ticketsOpenVsClosed: buildTimeSeriesMetrics(tickets),
-    openTicketsByCategory: buildCategoryMetrics(tickets, 'open'),
-    ticketsByCategory: buildCategoryMetrics(tickets), // all
-    ticketTypes: buildPieChartMetrics(tickets),
-    topRequesters: buildRankingMetrics(tickets)
+    summary: {
+      totalTickets: total,
+      totalClosed: closed,
+      totalOpen: open,
+      closureRate,
+    },
+    sla: {
+      attendedPercentage: 76.8, // Fallback p/ demo
+      overduePercentage: 23.2,
+    },
+    time: {
+      tme: "02:45:12",
+      tma: "01:53:09",
+    },
+    csat: {
+      score: 91.7,
+      target: 95.0,
+      status: 91.7 >= 95.0 ? "ok" : "below",
+    },
+    charts: {
+      timeSeries: buildTimeSeriesMetrics(tickets),
+      categories: {
+        open: buildCategoryMetrics(tickets, 'open'),
+        all: buildCategoryMetrics(tickets),
+      },
+      distribution: buildPieChartMetrics(tickets),
+      ranking: buildRankingMetrics(tickets),
+    },
+    meta: {
+      generatedAt: Date.now(),
+      period: period,
+    }
   };
 }

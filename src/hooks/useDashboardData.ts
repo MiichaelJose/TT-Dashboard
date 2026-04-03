@@ -1,37 +1,38 @@
-import { useMemo } from 'react';
-import { useGetMetricsQuery, useGetTicketsQuery } from '@/lib/redux/slices/tomTicketApi';
-import { buildDashboardMetrics } from '@/services/metrics.service';
-import { DashboardMetrics } from '@/types/dashboard';
+import { useEffect, useState } from 'react';
+import { useGetMetricsQuery, useTriggerSyncMutation } from '@/lib/redux/slices/tomTicketApi';
 
-export function useDashboardData(companyId: string) {
-  // Chamada teórica para a futura rota Server-Side de métricas
+export function useDashboardData(companyId: string, period: string = 'current') {
   const { 
-    data: metricsData, 
-    isLoading: isLoadingMetrics, 
-    isError: isMetricsError 
-  } = useGetMetricsQuery(companyId, { skip: !companyId });
+    data: details, 
+    isLoading: isFetching, 
+    isError,
+    isUninitialized,
+    refetch
+  } = useGetMetricsQuery({ companyId, period }, { skip: !companyId });
 
-  // Chamada de Fallback puxando array de `tickets` brutos
-  // Só realiza a chamada se houver erro ao puxar metrics ou se estiver vazio.
-  const shouldFallback = !metricsData || isMetricsError;
-  const { 
-    data: ticketsData, 
-    isLoading: isLoadingTickets 
-  } = useGetTicketsQuery(companyId, { skip: !companyId || !shouldFallback });
+  const [triggerSync, { isLoading: isSyncing }] = useTriggerSyncMutation();
+  const [hasAttemptedFallback, setHasAttemptedFallback] = useState(false);
 
-  const loading = isLoadingMetrics || (shouldFallback && isLoadingTickets);
+  // Fallback puro: caso a API de métricas não encontre dados no banco (ex: primeira vez),
+  // dispara um Sync forçado e depois refaz a solicitação getMetrics.
+  const isMissing = !details && !isFetching && !isUninitialized && !isError;
+  const shouldFallback = isMissing && !hasAttemptedFallback;
 
-  // Computa as métricas localmente caso fallback seja necessário
-  // Memoizado para evitar lentidão em re-renders
-  const finalMetrics: DashboardMetrics | null = useMemo(() => {
-    if (metricsData) return metricsData;
-    if (ticketsData) return buildDashboardMetrics(ticketsData);
-    return null;
-  }, [metricsData, ticketsData]);
+  useEffect(() => {
+    if (companyId && shouldFallback) {
+      setHasAttemptedFallback(true);
+      triggerSync(companyId)
+        .unwrap()
+        .then(() => refetch()) // Após sincronizar e salvar, refetch puxa os dados do banco
+        .catch(console.error);
+    }
+  }, [companyId, shouldFallback, triggerSync, refetch]);
+
+  const loading = isFetching || isSyncing || (isMissing && !hasAttemptedFallback);
 
   return {
-    metrics: finalMetrics,
+    details: details || null,
     loading,
-    usingFallback: shouldFallback && !!ticketsData,
+    isError,
   };
 }
